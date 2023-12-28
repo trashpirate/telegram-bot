@@ -3,8 +3,8 @@ import bodyParser from "body-parser";
 import TelegramBot from "node-telegram-bot-api";
 import dotenv from "dotenv";
 import { AddressInfo } from "net";
-
 dotenv.config();
+
 const PORT = "8080";
 
 async function main(): Promise<void> {
@@ -12,11 +12,8 @@ async function main(): Promise<void> {
 
   app.use(bodyParser.json());
 
-  let server = app.listen(PORT, () => {
-    let addressInfo = server.address() as AddressInfo;
-    let host = addressInfo.address;
-    let port = addressInfo.port;
-    console.log(`Express is listening at http://${host}:${port}`);
+  app.listen(PORT, () => {
+    console.log(`Express is listening at port ${PORT}`);
   });
 
   const token = process.env.TELEGRAM_TOKEN as string;
