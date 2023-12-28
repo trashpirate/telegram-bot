@@ -43,6 +43,7 @@ async function main(): Promise<void> {
         if (chatId) {
           bot.sendMessage(chatId, message);
         } else {
+          bot.sendMessage(chatId, message);
           console.log(message);
         }
       }
