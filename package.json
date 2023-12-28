@@ -7,8 +7,7 @@
     "start": "node dist/index.js",
     "postinstall": "tsc",
     "watch-node": "nodemon dist/index.js",
-    "watch-ts": "tsc -w",
-    "deploy": "git add . && git commit -m Heroku && git push heroku master"
+    "watch-ts": "tsc -w"
   },
   "author": "Nadina Oates",
   "license": "ISC",
