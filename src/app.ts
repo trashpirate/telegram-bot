@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 import { AddressInfo } from "net";
 dotenv.config();
 
-const PORT = "8080";
+const PORT = process.env.PORT || 8080;
 
 async function main(): Promise<void> {
   const app: Express = express();
