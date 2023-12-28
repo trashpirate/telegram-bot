@@ -5,7 +5,8 @@
   "main": "dist/app.js",
   "scripts": {
     "build": "tsc",
-    "start": "tsc && node dist/app.js"
+    "start": "tsc && node dist/app.js",
+    "dev": "nodemon src/index.ts"
   },
   "author": "Nadina Oates",
   "license": "ISC",
