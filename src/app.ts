@@ -31,14 +31,14 @@ async function main(): Promise<void> {
     const webhookEvent = req.body;
     const logs = webhookEvent.event.data.block.logs;
     if (logs.length === 0) {
-      console.log("Empty logs array received, sipping");
+      console.log("Empty logs array received, skipping");
     } else {
       for (let i = 0; i < logs.length; i++) {
         const topic1 = "0x" + logs[i].topics[1].slice(26);
         const topic2 = "0x" + logs[i].topics[2].slice(26);
-        const amount = parseInt(logs[i].data, 16) / 1e18;
+        // const amount = parseInt(logs[i].data, 16) / 1e18;
 
-        const message = `${topic1} sent ${amount} EARN to ${topic2}`;
+        const message = `${topic1} sent to ${topic2}: ${logs[i].data}`;
 
         if (chatId) {
           bot.sendMessage(chatId, message);
