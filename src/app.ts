@@ -1,27 +1,53 @@
+import express, { Express, Request, Response } from "express";
+import bodyParser from "body-parser";
 import TelegramBot from "node-telegram-bot-api";
-import "dotenv/config";
+import dotenv from "dotenv";
 
-const token = process.env.TELEGRAM_TOKEN as string;
+dotenv.config();
 
-const bot = new TelegramBot(token, { polling: true });
+async function main(): Promise<void> {
+  const app: Express = express();
 
-// Matches "/echo [whatever]"
-bot.onText(/\/echo (.+)/, (msg, match) => {
-  // 'msg' is the received Message from Telegram
-  // 'match' is the result of executing the regexp above on the text content
-  // of the message
-  const chatId = msg.chat.id;
-  const resp = match ? match[1] : "no response"; // the captured "whatever"
+  const port = "8080";
 
-  // send back the matched "whatever" to the chat
-  bot.sendMessage(chatId, resp);
-});
+  app.use(bodyParser.json());
 
-// Listen for any kind of message. There are different kinds of
-// messages.
-bot.on("message", (msg) => {
-  const chatId = msg.chat.id;
+  app.listen(port, () => {
+    return console.log(`Express is listening at http://localhost:${port}`);
+  });
 
-  // send a message to the chat acknowledging receipt of their message
-  bot.sendMessage(chatId, "Received your message");
-});
+  const token = process.env.TELEGRAM_TOKEN as string;
+
+  const bot = new TelegramBot(token, { polling: true });
+
+  let chatId: number | undefined;
+
+  bot.onText(/\/start/, (msg) => {
+    chatId = msg.chat.id;
+    bot.sendMessage(chatId, "Hello! Your notifications bot has been set up now!");
+  });
+
+  app.post("/notify", (req: Request, res: Response) => {
+    const webhookEvent = req.body;
+    const logs = webhookEvent.event.data.block.logs;
+    if (logs.length === 0) {
+      console.log("Empty logs array received, sipping");
+    } else {
+      for (let i = 0; i < logs.length; i++) {
+        const topic1 = "0x" + logs[i].topics[1].slice(26);
+        const topic2 = "0x" + logs[i].topics[2].slice(26);
+        const amount = parseInt(logs[i].data, 16) / 1e18;
+
+        const message = `${topic1} sent ${amount} EARN to ${topic2}`;
+
+        if (chatId) {
+          bot.sendMessage(chatId, message);
+        } else {
+          console.log(message);
+        }
+      }
+    }
+  });
+}
+
+main();
