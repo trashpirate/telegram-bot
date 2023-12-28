@@ -17,13 +17,16 @@ const body_parser_1 = __importDefault(require("body-parser"));
 const node_telegram_bot_api_1 = __importDefault(require("node-telegram-bot-api"));
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
+const PORT = "8080";
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
         const app = (0, express_1.default)();
-        const port = "8080";
         app.use(body_parser_1.default.json());
-        app.listen(port, () => {
-            return console.log(`Express is listening at http://localhost:${port}`);
+        let server = app.listen(PORT, () => {
+            let addressInfo = server.address();
+            let host = addressInfo.address;
+            let port = addressInfo.port;
+            console.log(`Express is listening at http://${host}:${port}`);
         });
         const token = process.env.TELEGRAM_TOKEN;
         const bot = new node_telegram_bot_api_1.default(token, { polling: true });
