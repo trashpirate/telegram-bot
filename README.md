@@ -3,7 +3,7 @@
 
 
 ```
-ngrok http http:localhost:8080 --domain https://ultimate-readily-ram.ngrok-free.app
+ngrok http http://localhost:8080 --domain=ultimate-readily-ram.ngrok-free.app
 ```
 
 Configure webhook
