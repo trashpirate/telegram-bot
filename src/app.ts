@@ -1,11 +1,10 @@
 import express, { Express, Request, Response } from "express";
 import bodyParser from "body-parser";
-import TelegramBot from "node-telegram-bot-api";
-import dotenv from "dotenv";
-import fetch from "node-fetch";
+import TelegramBot, { SendMessageOptions, SendPhotoOptions } from "node-telegram-bot-api";
 import { Network, Alchemy, Utils } from "alchemy-sdk";
 import axios from "axios";
-
+import dotenv from "dotenv";
+import { FileOptions } from "buffer";
 dotenv.config();
 
 const ETH_ID = 1027;
@@ -85,6 +84,7 @@ async function getLiqudityAmounts(
   const token1Amount = parseInt(Utils.hexValue(res.tokenBalances[1].tokenBalance), 16) / 1e18;
   return [token0Amount, token1Amount];
 }
+
 async function main(): Promise<void> {
   const app: Express = express();
 
@@ -134,9 +134,8 @@ async function main(): Promise<void> {
     const pairAddress = "0x32558f1214bd874c6cbc1ab545b28a18990ff7ee";
     const tokenAddress = "0x0b61c4f33bcdef83359ab97673cb5961c6435f4e";
 
-    // console.log
     if (logs.length === 0) {
-      console.log("Empty logs array received, skipping");
+      // console.log("Empty logs array received, skipping");
     } else {
       const hash = logs[0].transaction.hash;
       let isBuy: boolean;
@@ -150,6 +149,7 @@ async function main(): Promise<void> {
       } else if (from === pairAddress) {
         isBuy = true;
       }
+      // console.log("transfer data processed.");
 
       // process Swap data
       let tokens: number;
@@ -161,6 +161,7 @@ async function main(): Promise<void> {
         tokens = parseInt(logs[1].data.substr(2, 64), 16) / 1e18;
         eth = parseInt(logs[1].data.substr(194, 64), 16) / 1e18;
       }
+      // console.log("swap data processed.");
 
       const price = eth / tokens;
       const priceUsd = price * basePriceUsd;
@@ -169,31 +170,46 @@ async function main(): Promise<void> {
       // fetch marketcap
       const [totalSupply, burned] = await getMarketcap(tokenAddress);
       let marketCap = (totalSupply - burned) * priceUsd;
+      // console.log("eth price fetched");
 
       // fetch LP
       const [token0Address, token1Address] = await getTokens(pairAddress);
 
       const [lp0, lp1] = await getLiqudityAmounts(pairAddress, token0Address, token1Address);
       const lp = lp0 * priceUsd + lp1 * basePriceUsd;
+      // console.log("lp fetched.");
+
+      let photo = `${__dirname}/../public/image.png`;
 
       const message = `
-      swap: ${isBuy ? "buy" : "sell"}
-      🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
-      Spent: ${spent.toLocaleString("en", { minimumFractionDigits: 2 })} (${eth.toLocaleString(
+      *EARN BUY!*\n\n🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥\n\n*Spent*: $${spent.toLocaleString("en", {
+        minimumFractionDigits: 2,
+      })} (${eth.toLocaleString("en", {
+        minimumFractionDigits: 2,
+      })} WETH)\n*Got*: ${tokens.toLocaleString("en", {
+        minimumFractionDigits: 2,
+      })} EARN\n[Buyer Posiiton](https://etherscan.io/address/${to}): 🆕 New!\n*DEX*: Uniswap\n*Price*: $${priceUsd.toLocaleString(
         "en",
-        { minimumFractionDigits: 2 }
-      )} WETH)
-      Got: ${tokens.toLocaleString("en", { minimumFractionDigits: 2 })} EARN
-      Buyer Position: ${hash} 🆕 New! 
-      DEX: Uniswap
-      Price: $${priceUsd.toLocaleString("en", { minimumFractionDigits: 10 })}
-      LP: $${lp.toLocaleString("en", { minimumFractionDigits: 2 })}
-      MarketCap: $${marketCap.toLocaleString("en", { minimumFractionDigits: 2 })}
+        { minimumFractionDigits: 10 }
+      )} (${price.toLocaleString("en", {
+        minimumFractionDigits: 10,
+      })} WETH)\n*MarketCap*: $${marketCap.toLocaleString("en", {
+        minimumFractionDigits: 2,
+      })}\n*LP*: $${lp.toLocaleString("en", {
+        minimumFractionDigits: 2,
+      })}\n\n[TX](https://etherscan.io/tx/${hash}) | [Chart](https://www.dextools.io/app/en/ether/pair-explorer/${pairAddress}) | [Exchange](https://app.uniswap.org/swap?outputCurrency=${tokenAddress})
       `;
+      // Holders Count
+      // Token PRice
       // TX | Buyer | DexTools | Exchange
 
+      let opts: SendPhotoOptions = {
+        caption: message,
+        parse_mode: "Markdown",
+      };
+
       if (chatId) {
-        bot.sendMessage(chatId, message);
+        bot.sendPhoto(chatId, photo, opts);
       } else {
         console.log(message);
       }
