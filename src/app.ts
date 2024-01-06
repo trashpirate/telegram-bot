@@ -19,6 +19,8 @@ const supplyApi: string = "https://www.buyholdearn.com/api/circulating-supply";
 
 const PORT = process.env.PORT || 8080;
 
+let waitingForERC20Address = {};
+
 async function getBasePrice(coinId: number) {
   try {
     const response = await axios.get(
@@ -102,9 +104,31 @@ async function main(): Promise<void> {
 
   bot.onText(/\/start/, (msg) => {
     chatId = msg.chat.id;
-    bot.sendMessage(chatId, "Hello! Your notifications bot has been set up now!");
+    bot.sendMessage(chatId, "Choose an option:", {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "Add Token", callback_data: "add_token" },
+            { text: "Token Settings", callback_data: "token_settings" },
+          ],
+        ],
+      },
+    });
   });
 
+  bot.onText(/\/start/, (msg) => {
+    chatId = msg.chat.id;
+    bot.sendMessage(chatId, "Choose an option:", {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "Add Token", callback_data: "add_token" },
+            { text: "Token Settings", callback_data: "token_settings" },
+          ],
+        ],
+      },
+    });
+  });
   // bot.onText(/\/add_token/, (msg) => {
   //   chatId = msg.chat.id;
   //   bot.sendMessage(chatId, "Hello! Your notifications bot has been set up now!");
@@ -119,11 +143,48 @@ async function main(): Promise<void> {
     };
     let text;
 
-    if (action === "edit") {
-      text = "Edited Text";
+    if (action === "add_token") {
+      bot.sendMessage(chatId, "Choose a DEX:", {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "Uniswap V2", callback_data: "uniswap_v2" },
+              { text: "PancakeSwap", callback_data: "pcs_v2" },
+            ],
+          ],
+        },
+      });
+    } else if (action === "uniswap_v2") {
+      const chatId = msg.chat.id;
+      waitingForERC20Address[chatId] = true;
+      bot.sendMessage(chatId, "➡️ Enter Token Address:", {
+        reply_markup: {
+          inline_keyboard: [[{ text: "❌ Cancel", callback_data: "cancel" }]],
+        },
+      });
+    } else if (action === "pcs_v2") {
+      text = "Option 2 selected.";
+      bot.editMessageText(text, opts);
     }
+  });
 
-    bot.editMessageText(text, opts);
+  bot.on("message", async (message) => {
+    const chatId = message.chat.id;
+
+    if (waitingForERC20Address[chatId]) {
+      const userAddress = message.text;
+
+      // Check if the address starts with '0x' and is 42 characters long
+      if (!userAddress.startsWith("0x") || userAddress.length !== 42) {
+        await bot.sendMessage(
+          chatId,
+          "Invalid ERC20 token address. Please make sure it starts with '0x' and is 42 characters long."
+        );
+      } else {
+        delete waitingForERC20Address[chatId];
+        await bot.sendMessage(chatId, `Your ERC20 token address is: ${userAddress}`);
+      }
+    }
   });
 
   app.post("/notify", async (req: Request, res: Response) => {
@@ -157,61 +218,62 @@ async function main(): Promise<void> {
       if (isBuy) {
         eth = parseInt(logs[1].data.substr(66, 64), 16) / 1e18;
         tokens = parseInt(logs[1].data.substr(130, 64), 16) / 1e18;
-      } else {
-        tokens = parseInt(logs[1].data.substr(2, 64), 16) / 1e18;
-        eth = parseInt(logs[1].data.substr(194, 64), 16) / 1e18;
-      }
-      // console.log("swap data processed.");
+        // } else {
+        //   tokens = parseInt(logs[1].data.substr(2, 64), 16) / 1e18;
+        //   eth = parseInt(logs[1].data.substr(194, 64), 16) / 1e18;
+        // }
+        // console.log("swap data processed.");
 
-      const price = eth / tokens;
-      const priceUsd = price * basePriceUsd;
-      const spent = eth * basePriceUsd;
+        const price = eth / tokens;
+        const priceUsd = price * basePriceUsd;
+        const spent = eth * basePriceUsd;
 
-      // fetch marketcap
-      const [totalSupply, burned] = await getMarketcap(tokenAddress);
-      let marketCap = (totalSupply - burned) * priceUsd;
-      // console.log("eth price fetched");
+        // fetch marketcap
+        const [totalSupply, burned] = await getMarketcap(tokenAddress);
+        let marketCap = (totalSupply - burned) * priceUsd;
+        // console.log("eth price fetched");
 
-      // fetch LP
-      const [token0Address, token1Address] = await getTokens(pairAddress);
+        // fetch LP
+        const [token0Address, token1Address] = await getTokens(pairAddress);
 
-      const [lp0, lp1] = await getLiqudityAmounts(pairAddress, token0Address, token1Address);
-      const lp = lp0 * priceUsd + lp1 * basePriceUsd;
-      // console.log("lp fetched.");
+        const [lp0, lp1] = await getLiqudityAmounts(pairAddress, token0Address, token1Address);
+        const lp = lp0 * priceUsd + lp1 * basePriceUsd;
+        // console.log("lp fetched.");
 
-      let photo = `${__dirname}/../public/image.png`;
+        let photo = `${__dirname}/../public/image.png`;
 
-      const message = `
+        const message = `
       *EARN BUY!*\n\n🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥\n\n*Spent*: $${spent.toLocaleString("en", {
         minimumFractionDigits: 2,
       })} (${eth.toLocaleString("en", {
-        minimumFractionDigits: 2,
-      })} WETH)\n*Got*: ${tokens.toLocaleString("en", {
-        minimumFractionDigits: 2,
-      })} EARN\n[Buyer Posiiton](https://etherscan.io/address/${to}): 🆕 New!\n*DEX*: Uniswap\n*Price*: $${priceUsd.toLocaleString(
-        "en",
-        { minimumFractionDigits: 10 }
-      )} (${price.toLocaleString("en", {
-        minimumFractionDigits: 10,
-      })} WETH)\n*MarketCap*: $${marketCap.toLocaleString("en", {
-        minimumFractionDigits: 2,
-      })}\n*LP*: $${lp.toLocaleString("en", {
-        minimumFractionDigits: 2,
-      })}\n\n[TX](https://etherscan.io/tx/${hash}) | [Chart](https://www.dextools.io/app/en/ether/pair-explorer/${pairAddress}) | [Exchange](https://app.uniswap.org/swap?outputCurrency=${tokenAddress})
+          minimumFractionDigits: 2,
+        })} WETH)\n*Got*: ${tokens.toLocaleString("en", {
+          minimumFractionDigits: 2,
+        })} EARN\n[Buyer Posiiton](https://etherscan.io/address/${to}): 🆕 New!\n*DEX*: Uniswap\n*Price*: $${priceUsd.toLocaleString(
+          "en",
+          { minimumFractionDigits: 10 }
+        )} (${price.toLocaleString("en", {
+          minimumFractionDigits: 10,
+        })} WETH)\n*MarketCap*: $${marketCap.toLocaleString("en", {
+          minimumFractionDigits: 2,
+        })}\n*LP*: $${lp.toLocaleString("en", {
+          minimumFractionDigits: 2,
+        })}\n\n[TX](https://etherscan.io/tx/${hash}) | [Chart](https://www.dextools.io/app/en/ether/pair-explorer/${pairAddress}) | [Exchange](https://app.uniswap.org/swap?outputCurrency=${tokenAddress})
       `;
-      // Holders Count
-      // Token PRice
-      // TX | Buyer | DexTools | Exchange
+        // Holders Count
+        // Token PRice
+        // TX | Buyer | DexTools | Exchange
 
-      let opts: SendPhotoOptions = {
-        caption: message,
-        parse_mode: "Markdown",
-      };
+        let opts: SendPhotoOptions = {
+          caption: message,
+          parse_mode: "Markdown",
+        };
 
-      if (chatId) {
-        bot.sendPhoto(chatId, photo, opts);
-      } else {
-        console.log(message);
+        if (chatId) {
+          bot.sendPhoto(chatId, photo, opts);
+        } else {
+          console.log(message);
+        }
       }
     }
   });
